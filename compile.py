@@ -25,7 +25,6 @@ parser = argparse.ArgumentParser(description='Depth Anything V2 Model Evaluation
 
 parser.add_argument('--model_name', type=str, default='inference_depth_anything_v2_vits_opt_modified.onnx')
 parser.add_argument('--output_dir', type=str, default='./models/inference_depth_anything_v2_vits_kitti_real')
-parser.add_argument('--dataset_dir', type=str, default="./metric_depth/dataset")
 parser.add_argument('--calib_dir', type=str, default='kitti_calib_data')
 
 args = parser.parse_args()
@@ -36,9 +35,8 @@ OUTPUT_DIR = args.output_dir
 models = [args.model_name,
           ]
 
-dataset_dir = args.dataset_dir
 
-cal_dir = os.path.join(dataset_dir, args.calib_dir)
+cal_dir = args.calib_dir
 
 
 def image2tensor(raw_image, input_size=518):
@@ -122,7 +120,8 @@ def compile_model(model_name: str, arm_only: bool):
     model_sdk_net = loaded_net.quantize(calibration_data,
                                         default_quantization,
                                         model_name=model_name,
-                                        arm_only=arm_only)
+                                        arm_only=arm_only,
+                                        log_level=logging.INFO)
 
     saved_model_directory = OUTPUT_DIR
     model_sdk_net.save(model_name=model_name, output_directory=saved_model_directory)

@@ -173,8 +173,7 @@ python compile.py
 Options:
 - `--model_name`: name of the .onnx file (after surgery)
 - `--output_dir`: directory to save the quantized model to
-- `--dataset_dir`: path to the directory containing the dataset
-- `--calib_dir`: path to the calibration data, inside of dataset_dir
+- `--calib_dir`: relative path to the directory containing calibration data
 
 ### Retraining
 
