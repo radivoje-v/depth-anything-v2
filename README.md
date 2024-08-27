@@ -51,6 +51,11 @@ conda activate depth_anything
 pip install -r requirements.txt
 ```
 
+For installing pytorch with GPU support, please refer to https://pytorch.org/get-started/locally/.
+
+Ensure you have SiMa modelSDK 1.4.0 installed. Some of the functionalities should
+be run inside the docker container, and they will be explicitly specified.
+
 Download the checkpoints listed [here](#pre-trained-models) and put them under the `checkpoints` directory.
 
 ### Use our models
@@ -120,7 +125,8 @@ python run_onnx.py --model_path\
   [--input-size <size>] [--pred-only] [--grayscale]
 ```
 Options:
-- `--model_path`: Can point to .onnx file, or directory containing model in sima-quantized format
+- `--model_path`: Can point to .onnx file, or directory containing model in sima-quantized format.
+If running inference on a sima-quantized model, this script should be run from modelSDK docker.
 - `--img_path`: You can either 1) point it to an image directory storing all interested images, 2) point it to a single image, or 3) point it to a text file storing all image paths.
 - `--input-size` (optional): Needs to be `518` since the onnx graph is frozen with that fixed input shape.
 - `--pred-only` (optional): Only save the predicted depth map, without raw image.
@@ -141,7 +147,8 @@ Options:
 - `--checkpoint_infer`: .pth file for the inference model
 - `--checkpoint_metric`: .pth file for the validation model
 
-2. Run graph surgery script for inference model:
+2. Graph surgery - these scripts should be run from modelSDK docker <br><br>
+Run graph surgery script for inference model
 ```bash
 python graph_surgery.py --model /relative/path/to/onnx/model
 ```
@@ -150,13 +157,13 @@ Run graph surgery script for validation model:
 python graph_surgery.py --model /relative/path/to/onnx/model --val
 ```
 Because of the "resize" operator, the new model will not give identical outputs 
-as the original model. Please evaluate the new model to check the performance.
+as the original model. Please run inference on the new model to check the performance.
 
 ### Evaluating the validation model
 
 Modify dist_val.sh script by setting "model_path" to the model you want to evaluate. 
-This variable can point to a .pth file, .onnx file or a directory (in case of
-evaluation of a SiMa-quantized model).
+This variable can point to a .pth file or .onnx file. 
+
 
 ```bash
 cd ./metric_depth
@@ -166,7 +173,7 @@ cd ./metric_depth
 ### Compiling models
 
 To compile the models, place the .onnx model (after surgery) to "models" directory and run:
-
+(this needs to be run from modelSDK docker)
 ```bash
 python compile.py 
 ```
