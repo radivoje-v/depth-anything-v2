@@ -36,7 +36,7 @@ _onnx_fname = Path(_onnx_path)
 
 simplified_fname = f"{args.model[:-5]}_simplified.onnx"
 
-model_to_be_simplified = onnx.load(_source_onnx_fname)
+model_to_be_simplified = oh.load_model(_source_onnx_fname)
 model_simp, check = simplify(model_to_be_simplified)
 
 assert check, "Simplified ONNX model could not be validated"
@@ -1157,7 +1157,7 @@ def main(*, verify_simplified, split_top_level, split_transformer, verify_all_sp
                 _replace_node(model, node_i3, [*einsums_i3, concat])
 
         _onnx_split_fname = Path(_onnx_path[:-5] + "_modified.onnx")
-        onnx.save(model, _onnx_split_fname)
+        oh.save_model(model, _onnx_split_fname)
         print(f'ONNX file saved to {_onnx_split_fname}')
 
         # _verify(_onnx_split_fname, _onnx_fname)
