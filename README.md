@@ -157,13 +157,16 @@ Run graph surgery script for validation model:
 python graph_surgery.py --model /relative/path/to/onnx/model --val
 ```
 Because of the "resize" operator, the new model will not give identical outputs 
-as the original model. Please run inference on the new model to check the performance.
+as the original model. Please evaluate the new model to check the performance.
 
 ### Evaluating the validation model
 
 Modify dist_val.sh script by setting "model_path" to the model you want to evaluate. 
 This variable can point to a .pth file or .onnx file. 
 
+In the case of evaluating a SiMa-quantized model,
+"model_path" can point to the directory containing the quantized model, "quantized_model_name" should be set to
+the name of the quantized model, and the script should be run from modelSDK docker.
 
 ```bash
 cd ./metric_depth

@@ -22,9 +22,6 @@ import onnxruntime as ort
 from torchvision.transforms import Compose
 from depth_anything_v2.util.transform import Resize, NormalizeImage, PrepareForNet
 
-from afe.apis.model import Model
-from afe.ir.defines import InputName
-
 
 
 os.environ["PYTORCH_USE_CUDA_DSA"] = "1"
@@ -37,6 +34,7 @@ parser.add_argument('--img_size', default=518, type=int)
 parser.add_argument('--min-depth', default=0.001, type=float)
 parser.add_argument('--max-depth', default=20, type=float)
 parser.add_argument('--model-path', type=str, required=True)
+parser.add_argument('--quantized_model_name', type=str, default='inference_depth_anything_v2_vits_opt_modified.onnx')
 parser.add_argument('--save-path', type=str, required=True)
 parser.add_argument('--local-rank', default=0, type=int)
 parser.add_argument('--port', default=None, type=int)
@@ -76,11 +74,14 @@ def main():
     logger = init_log('global', logging.INFO)
     logger.propagate = 0
 
-    rank, world_size = setup_distributed(port=args.port)
+    if not os.path.isdir(args.model_path):
+        rank, world_size = setup_distributed(port=args.port)
 
-    if rank == 0:
-        all_args = {**vars(args), 'ngpus': world_size}
-        logger.info('{}\n'.format(pprint.pformat(all_args)))
+        if rank == 0:
+            all_args = {**vars(args), 'ngpus': world_size}
+            logger.info('{}\n'.format(pprint.pformat(all_args)))
+
+    local_rank = int(os.environ["LOCAL_RANK"])
 
     cudnn.enabled = True
     cudnn.benchmark = True
@@ -93,10 +94,12 @@ def main():
     else:
         raise NotImplementedError
 
-    valsampler = torch.utils.data.distributed.DistributedSampler(valset)
-    valloader = DataLoader(valset, batch_size=1, pin_memory=True, num_workers=4, drop_last=True, sampler=valsampler)
+    if not os.path.isdir(args.model_path):
+        valsampler = torch.utils.data.distributed.DistributedSampler(valset)
+        valloader = DataLoader(valset, batch_size=1, pin_memory=True, num_workers=4, drop_last=True, sampler=valsampler)
 
-    local_rank = int(os.environ["LOCAL_RANK"])
+    else:
+        valloader =  DataLoader(valset, batch_size=1, pin_memory=True, num_workers=4, drop_last=True)
 
     model_configs = {
         'vits': {'encoder': 'vits', 'features': 64, 'out_channels': [48, 96, 192, 384]},
@@ -106,6 +109,7 @@ def main():
     }
 
     DEVICE = 'cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu'
+
 
     if args.model_path.endswith(".pth"):
         extension = "pth"
@@ -124,20 +128,25 @@ def main():
 
         session = create_onnx_session(args.model_path)
 
+
+
     elif os.path.isdir(args.model_path):
+        from afe.apis.model import Model
+        from afe.ir.defines import InputName
+
         extension = "quant"
         quant_model_path = args.model_path
-        quantized_model = Model.load('inference_depth_anything_v2_vits_opt_modified.onnx', quant_model_path)
+        quantized_model = Model.load(args.quantized_model_name, quant_model_path)
 
-    results = {'d1': torch.tensor([0.0]).cuda(), 'd2': torch.tensor([0.0]).cuda(), 'd3': torch.tensor([0.0]).cuda(),
-               'abs_rel': torch.tensor([0.0]).cuda(), 'sq_rel': torch.tensor([0.0]).cuda(), 'rmse': torch.tensor([0.0]).cuda(),
-               'rmse_log': torch.tensor([0.0]).cuda(), 'log10': torch.tensor([0.0]).cuda(), 'silog': torch.tensor([0.0]).cuda()}
-    nsamples = torch.tensor([0.0]).cuda()
+    results = {'d1': torch.tensor([0.0]).to(DEVICE), 'd2': torch.tensor([0.0]).to(DEVICE), 'd3': torch.tensor([0.0]).to(DEVICE),
+               'abs_rel': torch.tensor([0.0]).to(DEVICE), 'sq_rel': torch.tensor([0.0]).to(DEVICE), 'rmse': torch.tensor([0.0]).to(DEVICE),
+               'rmse_log': torch.tensor([0.0]).to(DEVICE), 'log10': torch.tensor([0.0]).to(DEVICE), 'silog': torch.tensor([0.0]).to(DEVICE)}
+    nsamples = torch.tensor([0.0]).to(DEVICE)
 
     for i, sample in enumerate(valloader):
         print(f"Sample: {i}/{len(valloader)}")
 
-        img, depth, valid_mask = sample['image'].cuda().float(), sample['depth'].cuda()[0], sample['valid_mask'].cuda()[0]
+        img, depth, valid_mask = sample['image'].to(DEVICE).float(), sample['depth'].to(DEVICE)[0], sample['valid_mask'].to(DEVICE)[0]
 
         if extension == "pth":
             with torch.no_grad():
@@ -166,7 +175,7 @@ def main():
             pred = pred.squeeze(0)
             pred = torch.from_numpy(pred)
 
-        pred = pred.cuda()
+        pred = pred.to(DEVICE)
 
         pred = F.interpolate(pred[:, None], depth.shape[-2:], mode='bilinear', align_corners=True)[0, 0]
 
@@ -187,7 +196,7 @@ def main():
         dist.reduce(results[k], dst=0)
     dist.reduce(nsamples, dst=0)
 
-    if rank == 0:
+    if os.path.isdir(args.model_path) or rank == 0:
         logger.info('==========================================================================================')
         logger.info('{:>8}, {:>8}, {:>8}, {:>8}, {:>8}, {:>8}, {:>8}, {:>8}, {:>8}'.format(*tuple(results.keys())))
         logger.info('{:8.3f}, {:8.3f}, {:8.3f}, {:8.3f}, {:8.3f}, {:8.3f}, {:8.3f}, {:8.3f}, {:8.3f}'.format(*tuple([(v / nsamples).item() for v in results.values()])))
