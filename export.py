@@ -23,9 +23,6 @@ import onnxruntime as ort
 from torchvision.transforms import Compose
 from depth_anything_v2.util.transform import Resize, NormalizeImage, PrepareForNet
 
-from afe.apis.model import Model
-from afe.ir.defines import InputName
-
 
 os.environ["PYTORCH_USE_CUDA_DSA"] = "1"
 
