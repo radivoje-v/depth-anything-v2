@@ -25,7 +25,7 @@ parser = argparse.ArgumentParser(description='Depth Anything V2 Model Evaluation
 
 parser.add_argument('--model_name', type=str, default='inference_depth_anything_v2_vits_opt_modified.onnx')
 parser.add_argument('--output_dir', type=str, default='./models/inference_depth_anything_v2_vits_kitti_real')
-parser.add_argument('--calib_dir', type=str, default='kitti_calib_data')
+parser.add_argument('--calib_dir', type=str, default=None)
 
 args = parser.parse_args()
 
@@ -112,10 +112,12 @@ def compile_model(model_name: str, arm_only: bool):
     os.makedirs(output_dir, exist_ok=True)
     loaded_net = load_model(importer_params)
 
-    # inputs = {InputName(input_name): np.random.rand(1, 518, 518, 3)}
-    # dg = DataGenerator(inputs)
-    # calibration_data = convert_data_generator_to_iterable(dg)
-    calibration_data = load_calibration_data(cal_dir)
+    if not cal_dir:
+        inputs = {InputName(input_name): np.random.rand(1, 518, 518, 3)}
+        dg = DataGenerator(inputs)
+        calibration_data = convert_data_generator_to_iterable(dg)
+    else:
+        calibration_data = load_calibration_data(cal_dir)
 
     model_sdk_net = loaded_net.quantize(calibration_data,
                                         default_quantization,
