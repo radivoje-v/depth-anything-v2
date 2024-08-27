@@ -10,8 +10,6 @@ import torch.nn.functional as F
 from torchvision.transforms import Compose
 from depth_anything_v2.util.transform import Resize, NormalizeImage, PrepareForNet
 
-from afe.apis.model import Model
-from afe.ir.defines import InputName
 
 def create_onnx_session(model_path):
     # Create an ONNX Runtime session with GPU support
@@ -93,6 +91,10 @@ if __name__ == '__main__':
         session = create_onnx_session(args.model_path)
 
     elif os.path.isdir(args.model_path):
+
+        from afe.apis.model import Model
+        from afe.ir.defines import InputName
+
         extension = "quant"
         quant_model_path = args.model_path
         quantized_model = Model.load(args.quantized_model_name, quant_model_path)
