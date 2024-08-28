@@ -70,11 +70,11 @@ def image2tensor(raw_image, input_size=518):
 
 
 # Function to load a random subset of images from the val directory
-def load_calibration_data(root_dir):
+def load_calibration_data(root_dir, num_samples=35):
     image_files = os.listdir(root_dir)
-    # random.shuffle(image_files)  # Shuffle the list of image files
+    random.shuffle(image_files)  # Shuffle the list of image files
     calibration_data = []
-    for img_file in image_files:
+    for img_file in image_files[:num_samples]:
         img_path = os.path.join(root_dir, img_file)
         image = cv2.imread(img_path)
 
