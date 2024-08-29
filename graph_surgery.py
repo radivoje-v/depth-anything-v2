@@ -24,7 +24,8 @@ parser = argparse.ArgumentParser(description="Graph surgery for DepthAnythingV2"
 
 parser.add_argument('--val', dest='val', action='store_true',
                     help='if provided will do surgery for val model; otherwise for inference model')
-parser.add_argument('--model', type=str, help='relative path to the onnx model')
+parser.add_argument('--model', type=str, help='relative path to the onnx model',
+                    default="/home/rvlaskalic@syrmia.com/radivoje/apps-depth_anything_v2_demo/checkpoints/depth_anything_v2_vits_exported.onnx")
 
 args = parser.parse_args()
 
@@ -693,11 +694,26 @@ def _modify_postproc():
     keep_indices = np.arange(0, total_size, step).astype(np.int64)
     keep_indices = np.round(keep_indices).astype(np.int64)
 
+    rmv_indices = np.setdiff1d(all_indices, keep_indices)
+
+    rmv_indices = rmv_indices[1::2]
+    # Create an array of incremented values
+    incremented_rmv_indices = rmv_indices + 1
+
+    # Interleave the original array and the incremented array
+    result = np.empty((rmv_indices.size + incremented_rmv_indices.size), dtype=rmv_indices.dtype)
+    result[0::2] = rmv_indices
+    result[1::2] = incremented_rmv_indices
+
+    keep_indices = np.setdiff1d(all_indices, result)
+
+
     # Ensure there are exactly target_size elements
     if len(keep_indices) > target_size:
         keep_indices = keep_indices[:target_size]
     elif len(keep_indices) < target_size:
         keep_indices = np.append(keep_indices, total_size - 1)
+
 
     # Find the missing indices
     height_indices = np.setdiff1d(all_indices, keep_indices)
@@ -710,10 +726,14 @@ def _modify_postproc():
 
     # Create and insert the Slice nodes for height dimension
     height_slices = []
-    for i, index in enumerate(height_indices):
-        height_start_tmp = height_indices[i - 1] + 1 if i != 0 else 0
+    for i, index in enumerate(height_indices[::2]):
+        height_start_tmp = height_indices[2*i - 1] + 1 if i != 0 else 0
         start_height = np.array([0, 0, height_start_tmp, 0], dtype=np.int64)
-        height_end_tmp = height_indices[i] if i < len(height_indices) else 592
+
+        if i == 0:
+            height_end_tmp = height_indices[i]
+        else:
+            height_end_tmp = height_indices[2*i+1] - 1 if 2*i < len(height_indices) - 1 else 592
         end_height = np.array([1, 32, height_end_tmp, 592], dtype=np.int64)
         axes = np.array([0, 1, 2, 3], dtype=np.int64)
 
@@ -741,14 +761,20 @@ def _modify_postproc():
         outputs=['concatenated_height'],
         axis=2  # Assuming height slices are concatenated along height dimension
     )
-    model.graph.node.insert(node_idx + 1 + len(height_indices), concat_height_node)
+    model.graph.node.insert(node_idx + 1 + int(np.ceil(len(height_indices) / 2)), concat_height_node)
 
     # Create and insert the Slice nodes for width dimension
     width_slices = []
-    for i, index in enumerate(width_indices):
-        width_start_tmp = width_indices[i - 1] + 1 if i != 0 else 0
+    for i, index in enumerate(width_indices[::2]):
+        width_start_tmp = width_indices[2*i - 1] + 1 if i != 0 else 0
         start_width = np.array([0, 0, 0, width_start_tmp], dtype=np.int64)
-        width_end_tmp = width_indices[i] if i < len(width_indices) else 592
+        # width_end_tmp = width_indices[i] if i < len(width_indices) else 592
+
+        if i == 0:
+            width_end_tmp = width_indices[i]
+        else:
+            width_end_tmp = width_indices[2*i+1] - 1 if 2*i < len(width_indices) - 1 else 592
+
         end_width = np.array([1, 32, 518, width_end_tmp], dtype=np.int64)
         axes = np.array([0, 1, 2, 3], dtype=np.int64)
 
@@ -766,7 +792,7 @@ def _modify_postproc():
             outputs=[f'sliced_width_{i}'],
             name=f'slice_width_{i}'
         )
-        model.graph.node.insert(node_idx + 2 + len(height_indices) + i, slice_width_node)
+        model.graph.node.insert(node_idx + 2 + int(np.ceil(len(height_indices) / 2)) + i, slice_width_node)
         width_slices.append(f'sliced_width_{i}')
 
     # Create the final Concat node to merge width slices
@@ -776,7 +802,7 @@ def _modify_postproc():
         outputs=['concatenated_width'],
         axis=3  # Assuming width slices are concatenated along width dimension
     )
-    model.graph.node.insert(node_idx + 2 + len(height_indices) + len(width_indices), concat_width_node)
+    model.graph.node.insert(node_idx + 2 + int(np.ceil(len(height_indices) / 2)) + int(np.ceil(len(width_indices) / 2)), concat_width_node)
 
 
 
@@ -1156,7 +1182,7 @@ def main(*, verify_simplified, split_top_level, split_transformer, verify_all_sp
                 )
                 _replace_node(model, node_i3, [*einsums_i3, concat])
 
-        _onnx_split_fname = Path(_onnx_path[:-5] + "_modified.onnx")
+        _onnx_split_fname = Path(_onnx_path[:-5] + "_modified_2.onnx")
         oh.save_model(model, _onnx_split_fname)
         print(f'ONNX file saved to {_onnx_split_fname}')
 
