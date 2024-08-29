@@ -25,7 +25,8 @@ parser = argparse.ArgumentParser(description="Graph surgery for DepthAnythingV2"
 parser.add_argument('--val', dest='val', action='store_true',
                     help='if provided will do surgery for val model; otherwise for inference model')
 parser.add_argument('--model', type=str, help='relative path to the onnx model',
-                    default="/home/rvlaskalic@syrmia.com/radivoje/apps-depth_anything_v2_demo/checkpoints/depth_anything_v2_vits_exported.onnx")
+                    default="/home/rvlaskalic@syrmia.com/radivoje/github-repos/depth-anything-github/checkpoints/depth_anything_v2_vits_exported.onnx")
+parser.add_argument('--k', type=int, default=2)
 
 args = parser.parse_args()
 
@@ -495,7 +496,7 @@ def _modify_mlp_post(idx, model, transformer_blocks_mlp, start):
     oh.connect_nodes(model, [new_conv_nodes[1], f"/blocks.{idx}/mlp/fc2/Add"], 0, 1)
 
 
-def _modify_postproc():
+def _modify_postproc(k: int):
     postproc_fname = _postproc_split.filename
     model = onnx.load(postproc_fname)
     graph_def = model.graph
@@ -687,6 +688,7 @@ def _modify_postproc():
     # Generate the indices that will be kept to reduce the size from 592 to 518
     total_size = 592
     target_size = 518
+
     step = total_size / target_size
 
     # Generate the indices that need to be removed to achieve the target size
@@ -695,15 +697,19 @@ def _modify_postproc():
     keep_indices = np.round(keep_indices).astype(np.int64)
 
     rmv_indices = np.setdiff1d(all_indices, keep_indices)
-
-    rmv_indices = rmv_indices[1::2]
+    rmv_indices = rmv_indices[k-1::k]
     # Create an array of incremented values
-    incremented_rmv_indices = rmv_indices + 1
+    # incremented_rmv_indices = rmv_indices + 1
+    #
+    # # Interleave the original array and the incremented array
+    # result = np.empty((rmv_indices.size + incremented_rmv_indices.size), dtype=rmv_indices.dtype)
+    #
+    # for i in range(k)
+    # result[0::k] = rmv_indices
+    # result[1::k] = incremented_rmv_indices
 
-    # Interleave the original array and the incremented array
-    result = np.empty((rmv_indices.size + incremented_rmv_indices.size), dtype=rmv_indices.dtype)
-    result[0::2] = rmv_indices
-    result[1::2] = incremented_rmv_indices
+    tmptmp = np.arange(k+1)
+    result = np.concatenate([rmv_index + np.arange(k) for rmv_index in rmv_indices])
 
     keep_indices = np.setdiff1d(all_indices, result)
 
@@ -726,14 +732,14 @@ def _modify_postproc():
 
     # Create and insert the Slice nodes for height dimension
     height_slices = []
-    for i, index in enumerate(height_indices[::2]):
-        height_start_tmp = height_indices[2*i - 1] + 1 if i != 0 else 0
+    for i, index in enumerate(height_indices[::k]):
+        height_start_tmp = height_indices[k*i - 1] + 1 if i != 0 else 0
         start_height = np.array([0, 0, height_start_tmp, 0], dtype=np.int64)
 
         if i == 0:
             height_end_tmp = height_indices[i]
         else:
-            height_end_tmp = height_indices[2*i+1] - 1 if 2*i < len(height_indices) - 1 else 592
+            height_end_tmp = height_indices[k*i+1] - 1 if k*i < len(height_indices) - 1 else 592
         end_height = np.array([1, 32, height_end_tmp, 592], dtype=np.int64)
         axes = np.array([0, 1, 2, 3], dtype=np.int64)
 
@@ -761,19 +767,19 @@ def _modify_postproc():
         outputs=['concatenated_height'],
         axis=2  # Assuming height slices are concatenated along height dimension
     )
-    model.graph.node.insert(node_idx + 1 + int(np.ceil(len(height_indices) / 2)), concat_height_node)
+    model.graph.node.insert(node_idx + 1 + int(np.ceil(len(height_indices) / k)), concat_height_node)
 
     # Create and insert the Slice nodes for width dimension
     width_slices = []
-    for i, index in enumerate(width_indices[::2]):
-        width_start_tmp = width_indices[2*i - 1] + 1 if i != 0 else 0
+    for i, index in enumerate(width_indices[::k]):
+        width_start_tmp = width_indices[k*i - 1] + 1 if i != 0 else 0
         start_width = np.array([0, 0, 0, width_start_tmp], dtype=np.int64)
         # width_end_tmp = width_indices[i] if i < len(width_indices) else 592
 
         if i == 0:
             width_end_tmp = width_indices[i]
         else:
-            width_end_tmp = width_indices[2*i+1] - 1 if 2*i < len(width_indices) - 1 else 592
+            width_end_tmp = width_indices[k*i+1] - 1 if 2*i < len(width_indices) - 1 else 592
 
         end_width = np.array([1, 32, 518, width_end_tmp], dtype=np.int64)
         axes = np.array([0, 1, 2, 3], dtype=np.int64)
@@ -792,7 +798,7 @@ def _modify_postproc():
             outputs=[f'sliced_width_{i}'],
             name=f'slice_width_{i}'
         )
-        model.graph.node.insert(node_idx + 2 + int(np.ceil(len(height_indices) / 2)) + i, slice_width_node)
+        model.graph.node.insert(node_idx + 2 + int(np.ceil(len(height_indices) / k)) + i, slice_width_node)
         width_slices.append(f'sliced_width_{i}')
 
     # Create the final Concat node to merge width slices
@@ -802,7 +808,7 @@ def _modify_postproc():
         outputs=['concatenated_width'],
         axis=3  # Assuming width slices are concatenated along width dimension
     )
-    model.graph.node.insert(node_idx + 2 + int(np.ceil(len(height_indices) / 2)) + int(np.ceil(len(width_indices) / 2)), concat_width_node)
+    model.graph.node.insert(node_idx + 2 + int(np.ceil(len(height_indices) / k)) + int(np.ceil(len(width_indices) / k)), concat_width_node)
 
 
 
@@ -1075,7 +1081,7 @@ def _verify_opt_whole_model(src_model, opt_model, input_names):
     print(f"Error: min = {np.min(diff)}, max = {np.max(diff)}")
 
 
-def main(*, verify_simplified, split_top_level, split_transformer, verify_all_splits, gen_opt, num_splits=2):
+def main(*, verify_simplified, split_top_level, split_transformer, verify_all_splits, gen_opt, num_splits=2, k):
     global transformer_blocks_attn, transformer_blocks_mlp
     input_data = _generate_test_vector(_model_input_shape)
 
@@ -1113,7 +1119,7 @@ def main(*, verify_simplified, split_top_level, split_transformer, verify_all_sp
         opt_preproc_fname = _modify_preproc()
         _verify_opt_preproc(_preproc_split.filename, opt_preproc_fname, [_model_input_name], [input_data])
 
-        opt_postproc_fname = _modify_postproc()
+        opt_postproc_fname = _modify_postproc(k)
         _verify_opt_postproc(_postproc_split.filename, opt_postproc_fname, _postproc_split.input_names)
 
         opt_attn_fname = []
@@ -1182,7 +1188,7 @@ def main(*, verify_simplified, split_top_level, split_transformer, verify_all_sp
                 )
                 _replace_node(model, node_i3, [*einsums_i3, concat])
 
-        _onnx_split_fname = Path(_onnx_path[:-5] + "_modified_2.onnx")
+        _onnx_split_fname = Path(_onnx_path[:-5] + f"_modified_k_{k}.onnx")
         oh.save_model(model, _onnx_split_fname)
         print(f'ONNX file saved to {_onnx_split_fname}')
 
@@ -1220,5 +1226,6 @@ if __name__ == "__main__":
         split_top_level=True,
         split_transformer=True,
         verify_all_splits=True,
-        gen_opt=True
+        gen_opt=True,
+        k=args.k
     )
