@@ -141,11 +141,10 @@ validation (the difference being only in the last few nodes).
 1. Export pretrained .pth models to .onnx:
 ```bash
 python export.py --encoder vits --checkpoint_infer <checkpoint> \
---checkpoint_metric <checkpoint>
 ```
 Options:
-- `--checkpoint_infer`: .pth file for the inference model
-- `--checkpoint_metric`: .pth file for the validation model
+- `--encoder`: tipe of encoder (vits, vitb or vitl)
+- `--checkpoint`: path to .pth file
 
 2. Graph surgery - these scripts should be run from modelSDK docker <br><br>
 Run graph surgery script for inference model

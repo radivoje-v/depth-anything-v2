@@ -31,8 +31,7 @@ parser = argparse.ArgumentParser(description='Depth Anything V2 Model exporting'
 parser.add_argument('--encoder', default='vits', choices=['vits', 'vitb', 'vitl', 'vitg'])
 parser.add_argument('--img_size', default=518, type=int)
 parser.add_argument('--max-depth', default=20, type=float)
-parser.add_argument('--checkpoint_infer', type=str, required=True)
-parser.add_argument('--checkpoint_metric', type=str, required=True)
+parser.add_argument('--checkpoint', type=str, required=True)
 parser.add_argument('--port', default=None, type=int)
 
 
@@ -54,17 +53,17 @@ def main():
         'vitg': {'encoder': 'vitg', 'features': 384, 'out_channels': [1536, 1536, 1536, 1536]}
     }
 
-    metric_pth = args.checkpoint_metric
+    pth = args.checkpoint
 
     DEVICE = 'cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu'
 
     model = MetricModel(**{**model_configs[args.encoder], 'max_depth': args.max_depth})
-    model.load_state_dict(torch.load(args.checkpoint_metric, map_location='cpu'))
+    model.load_state_dict(torch.load(pth, map_location='cpu'))
     model.to(DEVICE).eval()
 
     dummy_input = torch.randn(1, 3, args.img_size, args.img_size).to(DEVICE)
 
-    output_path = f"{metric_pth[:-4]}_exported.onnx"
+    output_path = f"{pth[:-4]}_metric_exported.onnx"
     torch.onnx.export(model, dummy_input, output_path,
                       input_names=['input'],
                       output_names=['output'],
@@ -73,14 +72,11 @@ def main():
 
     print(f"Metric model exported to {output_path} successfully.")
 
-
-    inference_pth = args.checkpoint_infer
-
     depth_anything = InferenceModel(**model_configs[args.encoder])
-    depth_anything.load_state_dict(torch.load(args.checkpoint_infer, map_location='cpu'))
+    depth_anything.load_state_dict(torch.load(pth, map_location='cpu'))
     depth_anything = depth_anything.to(DEVICE).eval()
 
-    output_path = f"{inference_pth[:-4]}_exported.onnx"
+    output_path = f"{pth[:-4]}_inference_exported.onnx"
     torch.onnx.export(depth_anything, dummy_input, output_path,
                       input_names=['input'],
                       output_names=['output'],
