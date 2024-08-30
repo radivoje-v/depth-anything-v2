@@ -140,7 +140,7 @@ validation (the difference being only in the last few nodes).
 
 1. Export pretrained .pth models to .onnx:
 ```bash
-python export.py --encoder vits --checkpoint_infer <checkpoint> \
+python export.py --encoder vits --checkpoint <checkpoint> 
 ```
 Options:
 - `--encoder`: tipe of encoder (vits, vitb or vitl)
