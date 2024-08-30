@@ -25,8 +25,8 @@ parser = argparse.ArgumentParser(description="Graph surgery for DepthAnythingV2"
 parser.add_argument('--val', dest='val', action='store_true',
                     help='if provided will do surgery for val model; otherwise for inference model')
 parser.add_argument('--model', type=str, help='relative path to the onnx model',
-                    default="/home/rvlaskalic@syrmia.com/radivoje/github-repos/depth-anything-github/checkpoints/depth_anything_v2_vits_exported.onnx")
-parser.add_argument('--k', type=int, default=2)
+                    default="/home/rvlaskalic@syrmia.com/radivoje/github_repos/depth-anything-github/checkpoints/depth_anything_v2_vits_exported.onnx")
+parser.add_argument('--k', type=int, default=1)
 
 args = parser.parse_args()
 
@@ -739,7 +739,7 @@ def _modify_postproc(k: int):
         if i == 0:
             height_end_tmp = height_indices[i]
         else:
-            height_end_tmp = height_indices[k*i+1] - 1 if k*i < len(height_indices) - 1 else 592
+            height_end_tmp = height_indices[k*i+1-1] if k*i < len(height_indices) - (k-1) else 592
         end_height = np.array([1, 32, height_end_tmp, 592], dtype=np.int64)
         axes = np.array([0, 1, 2, 3], dtype=np.int64)
 
@@ -779,7 +779,7 @@ def _modify_postproc(k: int):
         if i == 0:
             width_end_tmp = width_indices[i]
         else:
-            width_end_tmp = width_indices[k*i+1] - 1 if 2*i < len(width_indices) - 1 else 592
+            width_end_tmp = width_indices[k*i+1-1] if k*i < len(width_indices) - (k-1) else 592
 
         end_width = np.array([1, 32, 518, width_end_tmp], dtype=np.int64)
         axes = np.array([0, 1, 2, 3], dtype=np.int64)
