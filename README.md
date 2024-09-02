@@ -53,8 +53,8 @@ pip install -r requirements.txt
 
 For installing pytorch with GPU support, please refer to https://pytorch.org/get-started/locally/.
 
-Ensure you have SiMa modelSDK 1.4.0 installed. Some of the functionalities should
-be run inside the docker container, and they will be explicitly specified.
+Ensure you have SiMa modelSDK 1.4.0 installed. Some of the scripts should
+be run inside the docker container, and this is explicitly specified.
 
 Download the checkpoints listed [here](#pre-trained-models) and put them under the `checkpoints` directory.
 
@@ -136,26 +136,26 @@ If running inference on a sima-quantized model, this script should be run from m
 
 To generate final models that can run entirely on the MLA, please follow these steps.
 There are 2 different models, depending on whether you want to perform inference or 
-validation (the difference being only in the last few nodes).
+validation, the difference being only in the last few nodes: ReLU vs (Sigmoid + Mul).
 
 1. Export pretrained .pth models to .onnx:
 ```bash
-python export.py --encoder vits --checkpoint <checkpoint> 
+python export.py --encoder <encoder> --checkpoint <checkpoint> 
 ```
 Options:
-- `--encoder`: tipe of encoder (vits, vitb or vitl)
+- `--encoder`: type of encoder (vits, vitb or vitl)
 - `--checkpoint`: path to .pth file
 
-2. Graph surgery - these scripts should be run from modelSDK docker <br><br>
-Run graph surgery script for inference model
+2. Graph surgery - these scripts should be run from modelSDK docker. Make sure to include 
+"val" flag when performing surgery on the validation model.<br><br>
 ```bash
-python graph_surgery.py --model /relative/path/to/onnx/model
+python graph_surgery.py --model <model> [--val]
 ```
-Run graph surgery script for validation model:
-```bash
-python graph_surgery.py --model /relative/path/to/onnx/model --val
-```
-Because of the "resize" operator, the new model will not give identical outputs 
+Options:
+- `--model`: relative path to original .onnx model
+- `--val`: (optional) include this flag only when running surgery on the validation model.
+
+Because of some of the custom rewrites, the new model will not give identical outputs 
 as the original model. Please evaluate the new model to check the performance.
 
 ### Evaluating the validation model
@@ -174,15 +174,15 @@ cd ./metric_depth
 
 ### Compiling models
 
-To compile the models, place the .onnx model (after surgery) to "models" directory and run:
+To compile the models, place the .onnx model (post-surgery) to ./models directory and run:
 (this needs to be run from modelSDK docker)
 ```bash
-python compile.py 
+python compile.py --model_name <model_name> --output_dir <output_dir> [--calib_dir <calib_dir>]
 ```
 Options:
-- `--model_name`: name of the .onnx file (after surgery)
+- `--model_name`: name of the .onnx file (post-surgery)
 - `--output_dir`: directory to save the quantized model to
-- `--calib_dir`: relative path to the directory containing calibration data. If not provided,
+- `--calib_dir`: (optional) relative path to the directory containing calibration data. If not provided,
 calibration will be done with random data.
 
 ### Retraining

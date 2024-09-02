@@ -120,23 +120,21 @@ def main():
         model.cuda(local_rank)
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank], broadcast_buffers=False,
                                                           output_device=local_rank, find_unused_parameters=True)
-
-
-
     elif args.model_path.endswith(".onnx"):
         extension = "onnx"
 
         session = create_onnx_session(args.model_path)
-
-
-
     elif os.path.isdir(args.model_path):
+
         from afe.apis.model import Model
         from afe.ir.defines import InputName
 
         extension = "quant"
+
         quant_model_path = args.model_path
         quantized_model = Model.load(args.quantized_model_name, quant_model_path)
+    else:
+        raise ValueError(f"Wrong file extension for model path: {args.model_path}. Please provide model in .pth, .onnx or SiMa-quantized format")
 
     results = {'d1': torch.tensor([0.0]).to(DEVICE), 'd2': torch.tensor([0.0]).to(DEVICE), 'd3': torch.tensor([0.0]).to(DEVICE),
                'abs_rel': torch.tensor([0.0]).to(DEVICE), 'sq_rel': torch.tensor([0.0]).to(DEVICE), 'rmse': torch.tensor([0.0]).to(DEVICE),
@@ -159,7 +157,8 @@ def main():
 
             ort_inputs = {session.get_inputs()[0].name: image}
             pred = session.run(None, ort_inputs)[0]
-            pred = pred.squeeze(0)
+            if len(pred.shape) == 4:
+                pred = pred.squeeze(0)
             pred = torch.from_numpy(pred)
         elif extension == "quant":
             input_image = np.array(img.cpu())
@@ -172,7 +171,8 @@ def main():
             transposed_image = np.transpose(input_image, (0, 2, 3, 1))
             pred = quantized_model.execute({InputName('input'): transposed_image})
             pred = pred[0].transpose(0, 3, 1, 2)
-            pred = pred.squeeze(0)
+            if len(pred.shape) == 4:
+                pred = pred.squeeze(0)
             pred = torch.from_numpy(pred)
 
         pred = pred.to(DEVICE)

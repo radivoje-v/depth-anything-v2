@@ -88,17 +88,24 @@ if __name__ == '__main__':
     if args.model_path.endswith(".onnx"):
         extension = "onnx"
 
+        model_name = os.path.basename(args.model_path[:-5])
+        outdir = os.path.join(args.outdir, model_name)
         session = create_onnx_session(args.model_path)
-
     elif os.path.isdir(args.model_path):
 
         from afe.apis.model import Model
         from afe.ir.defines import InputName
 
+        model_name = os.path.basename(args.model_path)
+        outdir = os.path.join(args.outdir, model_name)
+
         extension = "quant"
         quant_model_path = args.model_path
         quantized_model = Model.load(args.quantized_model_name, quant_model_path)
+    else:
+        raise ValueError(f"Wrong file extension for model path: {args.model_path}. Please provide model in .onnx or SiMa-quantized format")
 
+    os.makedirs(outdir, exist_ok=True)
 
     for k, filename in enumerate(filenames):
         print(f'Progress {k + 1}/{len(filenames)}: {filename}')
@@ -115,7 +122,10 @@ if __name__ == '__main__':
 
             ort_inputs = {session.get_inputs()[0].name: image}
             pred = session.run(None, ort_inputs)[0]
-            pred = pred.squeeze(0)
+
+            if len(pred.shape) == 4:
+                pred = pred.squeeze(0)
+
             pred = torch.from_numpy(pred)
         elif extension == "quant":
 
@@ -126,7 +136,10 @@ if __name__ == '__main__':
             transposed_image = np.transpose(input_image, (0, 2, 3, 1))
             pred = quantized_model.execute({InputName('input'): transposed_image})
             pred = pred[0].transpose(0, 3, 1, 2)
-            pred = pred.squeeze(0)
+
+            if len(pred.shape) == 4:
+                pred = pred.squeeze(0)
+
             pred = torch.from_numpy(pred)
 
         depth = pred
@@ -141,13 +154,14 @@ if __name__ == '__main__':
         else:
             depth = (cmap(depth)[:, :, :3] * 255)[:, :, ::-1].astype(np.uint8)
 
+        resulting_file_name = os.path.join(outdir, os.path.splitext(os.path.basename(filename))[0] + f'_{model_name}.png')
+
         if args.pred_only:
-            cv2.imwrite(os.path.join(args.outdir, os.path.splitext(os.path.basename(filename))[0] + '.png'), depth)
+            cv2.imwrite(resulting_file_name, depth)
         else:
             split_region = np.ones((raw_image.shape[0], 50, 3), dtype=np.uint8) * 255
             combined_result = cv2.hconcat([raw_image, split_region, depth])
 
-            cv2.imwrite(os.path.join(args.outdir, os.path.splitext(os.path.basename(filename))[0] + '.png'),
-                        combined_result)
+            cv2.imwrite(resulting_file_name, combined_result)
 
-        print(f"Result saved to {os.path.join(args.outdir, os.path.splitext(os.path.basename(filename))[0] + '.png')}")
+        print(f"Result saved to {resulting_file_name}")

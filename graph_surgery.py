@@ -48,8 +48,7 @@ onnx.save(model_simp, simplified_fname)
 _source_onnx_fname = Path(args.model)
 _simplified_onnx_fname = Path(simplified_fname)
 
-_model_input_shape = (1, 3, 518, 518)
-_input_shape = (1,3,518,518)
+_input_shape = (1, 3, 518, 518)
 _model_input_name = "input"
 _model_output_name = "output"
 
@@ -220,7 +219,7 @@ def _modify_preproc():
     M, C_G, kH, kW = w.shape
 
     # Compute output height of convolution
-    oH = (_model_input_shape[2] - kH) // kH + 1
+    oH = (_input_shape[2] - kH) // kH + 1
 
     # Rewrite nodes
     for node_idx, node in enumerate(graph_def.node):
@@ -685,12 +684,12 @@ def _modify_postproc(k: int):
         if node.name == "/depth_head/Resize":
             break
 
-    # Generate the indices that will be kept to reduce the size from 592 to 518
     total_size = 592
     target_size = 518
 
     step = total_size / target_size
 
+    # Generate the indices that will be kept to reduce the size from 592 to 518
     # Generate the indices that need to be removed to achieve the target size
     all_indices = np.arange(total_size)
     keep_indices = np.arange(0, total_size, step).astype(np.int64)
@@ -698,17 +697,7 @@ def _modify_postproc(k: int):
 
     rmv_indices = np.setdiff1d(all_indices, keep_indices)
     rmv_indices = rmv_indices[k-1::k]
-    # Create an array of incremented values
-    # incremented_rmv_indices = rmv_indices + 1
-    #
-    # # Interleave the original array and the incremented array
-    # result = np.empty((rmv_indices.size + incremented_rmv_indices.size), dtype=rmv_indices.dtype)
-    #
-    # for i in range(k)
-    # result[0::k] = rmv_indices
-    # result[1::k] = incremented_rmv_indices
 
-    tmptmp = np.arange(k+1)
     result = np.concatenate([rmv_index + np.arange(k) for rmv_index in rmv_indices])
 
     keep_indices = np.setdiff1d(all_indices, result)
@@ -1083,7 +1072,7 @@ def _verify_opt_whole_model(src_model, opt_model, input_names):
 
 def main(*, verify_simplified, split_top_level, split_transformer, verify_all_splits, gen_opt, num_splits=2, k):
     global transformer_blocks_attn, transformer_blocks_mlp
-    input_data = _generate_test_vector(_model_input_shape)
+    input_data = _generate_test_vector(_input_shape)
 
     # --------- simplified model ------------------
 
