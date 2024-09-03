@@ -70,7 +70,7 @@ def image2tensor(raw_image, input_size=518):
 
 
 # Function to load a random subset of images from the val directory
-def load_calibration_data(root_dir, num_samples=35):
+def load_calibration_data(root_dir, num_samples=-1):
     image_files = os.listdir(root_dir)
     random.shuffle(image_files)  # Shuffle the list of image files
     calibration_data = []
