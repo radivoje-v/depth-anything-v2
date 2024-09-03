@@ -74,7 +74,8 @@ def main():
     logger = init_log('global', logging.INFO)
     logger.propagate = 0
 
-    if not os.path.isdir(args.model_path):
+    model_p = args.model_path
+    if not os.path.isdir(model_p):
         rank, world_size = setup_distributed(port=args.port)
 
         if rank == 0:
@@ -90,7 +91,7 @@ def main():
     if args.dataset == 'hypersim':
         valset = Hypersim('dataset/splits/hypersim/val.txt', 'val', size=size)
     elif args.dataset == 'vkitti':
-        valset = KITTI('dataset/splits/kitti/val.txt', 'val', size=size)
+        valset = KITTI('dataset/splits/kitti/val.txt', 'val', size=size, sample_size=100)
     else:
         raise NotImplementedError
 
@@ -181,13 +182,15 @@ def main():
             results[k] += cur_results[k]
         nsamples += 1
 
-    torch.distributed.barrier()
+    if args.model_path.endswith(".pth"):
 
-    for k in results.keys():
-        dist.reduce(results[k], dst=0)
-    dist.reduce(nsamples, dst=0)
+        torch.distributed.barrier()
 
-    if os.path.isdir(args.model_path) or rank == 0:
+        for k in results.keys():
+            dist.reduce(results[k], dst=0)
+        dist.reduce(nsamples, dst=0)
+
+    if os.path.isdir(model_p) or rank == 0:
         logger.info('==========================================================================================')
         logger.info('{:>8}, {:>8}, {:>8}, {:>8}, {:>8}, {:>8}, {:>8}, {:>8}, {:>8}'.format(*tuple(results.keys())))
         logger.info('{:8.3f}, {:8.3f}, {:8.3f}, {:8.3f}, {:8.3f}, {:8.3f}, {:8.3f}, {:8.3f}, {:8.3f}'.format(*tuple([(v / nsamples).item() for v in results.values()])))
