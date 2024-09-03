@@ -152,9 +152,6 @@ def main():
         elif extension == "onnx":
             image = np.array(img.cpu())
 
-            image = cv2.resize(np.transpose(np.squeeze(image, axis=0), (1,2,0)), (args.img_size, args.img_size))
-            image = np.expand_dims(np.transpose(image, (2,0,1)), axis=0)
-
             ort_inputs = {session.get_inputs()[0].name: image}
             pred = session.run(None, ort_inputs)[0]
             if len(pred.shape) == 4:
@@ -162,12 +159,6 @@ def main():
             pred = torch.from_numpy(pred)
         elif extension == "quant":
             input_image = np.array(img.cpu())
-
-            image = input_image
-            image = cv2.resize(np.transpose(np.squeeze(image, axis=0), (1,2,0)), (args.img_size, args.img_size))
-            image = np.expand_dims(np.transpose(image, (2,0,1)), axis=0)
-            input_image = image
-
             transposed_image = np.transpose(input_image, (0, 2, 3, 1))
             pred = quantized_model.execute({InputName('input'): transposed_image})
             pred = pred[0].transpose(0, 3, 1, 2)

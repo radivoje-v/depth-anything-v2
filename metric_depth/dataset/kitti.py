@@ -1,3 +1,5 @@
+import random
+
 import cv2
 import torch
 from torch.utils.data import Dataset
@@ -7,7 +9,7 @@ from dataset.transform import Resize, NormalizeImage, PrepareForNet
 
 
 class KITTI(Dataset):
-    def __init__(self, filelist_path, mode, size=(518, 518)):
+    def __init__(self, filelist_path, mode, size=(518, 518), sample_size = -1):
         if mode != 'val':
             raise NotImplementedError
         
@@ -15,15 +17,15 @@ class KITTI(Dataset):
         self.size = size
         
         with open(filelist_path, 'r') as f:
-            self.filelist = f.read().splitlines()
-        
+            all_lines = f.read().splitlines()
+            self.filelist = all_lines[:sample_size]
         net_w, net_h = size
         self.transform = Compose([
             Resize(
                 width=net_w,
                 height=net_h,
                 resize_target=True if mode == 'train' else False,
-                keep_aspect_ratio=True,
+                keep_aspect_ratio=False,
                 ensure_multiple_of=14,
                 resize_method='lower_bound',
                 image_interpolation_method=cv2.INTER_CUBIC,
@@ -38,7 +40,7 @@ class KITTI(Dataset):
         
         image = cv2.imread(img_path)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB) / 255.0
-        
+
         depth = cv2.imread(depth_path, cv2.IMREAD_UNCHANGED).astype('float32')
         
         sample = self.transform({'image': image, 'depth': depth})
