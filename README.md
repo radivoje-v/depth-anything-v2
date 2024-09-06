@@ -184,6 +184,7 @@ Options:
 - `--output_dir`: directory to save the quantized model to
 - `--calib_dir`: (optional) relative path to the directory containing calibration data. If not provided,
 calibration will be done with random data.
+- `--num_samples`: (optional) number of samples to use for calibration with real data, by default uses the whole calib_dir directory
 
 ### Retraining
 
