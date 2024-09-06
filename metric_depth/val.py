@@ -38,6 +38,7 @@ parser.add_argument('--quantized_model_name', type=str, default='inference_depth
 parser.add_argument('--save-path', type=str, required=True)
 parser.add_argument('--local-rank', default=0, type=int)
 parser.add_argument('--port', default=None, type=int)
+parser.add_argument('--sample_size', default=-1, type=int)
 
 
 def create_onnx_session(model_path):
@@ -75,7 +76,7 @@ def main():
     logger.propagate = 0
 
     model_p = args.model_path
-    if not os.path.isdir(model_p):
+    if args.model_path.endswith(".pth"):
         rank, world_size = setup_distributed(port=args.port)
 
         if rank == 0:
@@ -91,11 +92,11 @@ def main():
     if args.dataset == 'hypersim':
         valset = Hypersim('dataset/splits/hypersim/val.txt', 'val', size=size)
     elif args.dataset == 'vkitti':
-        valset = KITTI('dataset/splits/kitti/val.txt', 'val', size=size, sample_size=100)
+        valset = KITTI('dataset/splits/kitti/val.txt', 'val', size=size, sample_size=args.sample_size)
     else:
         raise NotImplementedError
 
-    if not os.path.isdir(args.model_path):
+    if args.model_path.endswith(".pth"):
         valsampler = torch.utils.data.distributed.DistributedSampler(valset)
         valloader = DataLoader(valset, batch_size=1, pin_memory=True, num_workers=4, drop_last=True, sampler=valsampler)
 
@@ -190,11 +191,15 @@ def main():
             dist.reduce(results[k], dst=0)
         dist.reduce(nsamples, dst=0)
 
-    if os.path.isdir(model_p) or rank == 0:
-        logger.info('==========================================================================================')
-        logger.info('{:>8}, {:>8}, {:>8}, {:>8}, {:>8}, {:>8}, {:>8}, {:>8}, {:>8}'.format(*tuple(results.keys())))
-        logger.info('{:8.3f}, {:8.3f}, {:8.3f}, {:8.3f}, {:8.3f}, {:8.3f}, {:8.3f}, {:8.3f}, {:8.3f}'.format(*tuple([(v / nsamples).item() for v in results.values()])))
-        logger.info('==========================================================================================')
+    if not args.model_path.endswith(".pth") or rank == 0:
+        # logger.info('==========================================================================================')
+        # logger.info('{:>8}, {:>8}, {:>8}, {:>8}, {:>8}, {:>8}, {:>8}, {:>8}, {:>8}'.format(*tuple(results.keys())))
+        # logger.info('{:8.3f}, {:8.3f}, {:8.3f}, {:8.3f}, {:8.3f}, {:8.3f}, {:8.3f}, {:8.3f}, {:8.3f}'.format(*tuple([(v / nsamples).item() for v in results.values()])))
+        # logger.info('==========================================================================================')
+        print('==========================================================================================')
+        print('{:>8}, {:>8}, {:>8}, {:>8}, {:>8}, {:>8}, {:>8}, {:>8}, {:>8}'.format(*tuple(results.keys())))
+        print('{:8.3f}, {:8.3f}, {:8.3f}, {:8.3f}, {:8.3f}, {:8.3f}, {:8.3f}, {:8.3f}, {:8.3f}'.format(*tuple([(v / nsamples).item() for v in results.values()])))
+        print('==========================================================================================')
 
 if __name__ == '__main__':
     main()

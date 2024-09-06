@@ -20,16 +20,21 @@ from sima_utils.data.data_generator import DataGenerator
 from afe.apis.error_handling_variables import enable_verbose_error_messages
 
 
-parser = argparse.ArgumentParser(description='Depth Anything V2 Model Evaluation')
+parser = argparse.ArgumentParser(description='Depth Anything V2 Model Compilation')
 
 
-parser.add_argument('--model_name', type=str, default='inference_depth_anything_v2_vits_opt_modified.onnx')
-parser.add_argument('--output_dir', type=str, default='./models/inference_depth_anything_v2_vits_kitti_real')
-parser.add_argument('--calib_dir', type=str, default=None)
+parser.add_argument('--model_name', type=str, default='inference_depth_anything_v2_vits_opt_modified.onnx',
+                    help="name of post-surgery model inside ./checkpoint directory")
+parser.add_argument('--output_dir', type=str, default='./models/inference_depth_anything_v2_vits_kitti_real',
+                    help="name of directory to save quantized model to")
+parser.add_argument('--calib_dir', type=str, default=None,
+                    help="path to directory containing calib. samples, if not specified then use random data")
+parser.add_argument('--num_samples', type=int, default=-1,
+                    help="number of samples to use for calibration, by default uses the whole calib_dir directory")
 
 args = parser.parse_args()
 
-MODEL_DIR = './models'
+MODEL_DIR = './checkpoints'
 OUTPUT_DIR = args.output_dir
 
 models = [args.model_name,
@@ -37,9 +42,10 @@ models = [args.model_name,
 
 
 cal_dir = args.calib_dir
+num_samples = args.num_samples
+img_size = 518
 
-
-def image2tensor(raw_image, input_size=518):
+def image2tensor(raw_image, input_size=img_size):
     transform = Compose([
         Resize(
             width=input_size,
@@ -79,7 +85,7 @@ def load_calibration_data(root_dir, num_samples=-1):
         image = cv2.imread(img_path)
 
 
-        input_tensor, (h, w) = image2tensor(image, input_size=518)
+        input_tensor, (h, w) = image2tensor(image, input_size=img_size)
         image_np = np.array(input_tensor.cpu())
         transposed_image = np.transpose(image_np, (0, 2, 3, 1))
 
@@ -100,24 +106,25 @@ def compile_model(model_name: str, arm_only: bool):
     enable_verbose_error_messages()
 
     # Models importer parameters
-    input_name, input_shape, input_type = ("input", (1, 3, 518, 518), ScalarType.float32)
+    input_name, input_shape, input_type = ("input", (1, 3, img_size, img_size), ScalarType.float32)
     input_shapes_dict = {input_name: input_shape}
     input_types_dict = {input_name: input_type}
 
     model_path = os.path.join(MODEL_DIR, f"{model_name}")
     importer_params = onnx_source(model_path, input_shapes_dict, input_types_dict)
 
-    model_prefix = os.path.splitext(model_path)[0]
+    model_prefix = os.path.splitext(os.path.basename(model_path))[0]
     output_dir = os.path.join(OUTPUT_DIR, f"{model_prefix}")
-    os.makedirs(output_dir, exist_ok=True)
+
+    os.makedirs(output_dir, exist_ok=False)
     loaded_net = load_model(importer_params)
 
     if not cal_dir:
-        inputs = {InputName(input_name): np.random.rand(1, 518, 518, 3)}
+        inputs = {InputName(input_name): np.random.rand(1, img_size, img_size, 3)}
         dg = DataGenerator(inputs)
         calibration_data = convert_data_generator_to_iterable(dg)
     else:
-        calibration_data = load_calibration_data(cal_dir)
+        calibration_data = load_calibration_data(cal_dir, num_samples=num_samples)
 
     model_sdk_net = loaded_net.quantize(calibration_data,
                                         default_quantization,

@@ -135,7 +135,7 @@ If running inference on a sima-quantized model, this script should be run from m
 
 
 To generate final models that can run entirely on the MLA, please follow these steps.
-There are 2 different models, depending on whether you want to perform inference or 
+There are 2 different architectures, depending on whether you want to perform inference or 
 validation, the difference being only in the last few nodes: ReLU vs (Sigmoid + Mul).
 
 1. Export pretrained .pth models to .onnx:
@@ -174,7 +174,7 @@ cd ./metric_depth
 
 ### Compiling models
 
-To compile the models, place the .onnx model (post-surgery) to ./models directory and run:
+To compile the models, ensure the .onnx model (post-surgery) is inside ./checkpoints directory and run:
 (this needs to be run from modelSDK docker)
 ```bash
 python compile.py --model_name <model_name> --output_dir <output_dir> [--calib_dir <calib_dir>]
