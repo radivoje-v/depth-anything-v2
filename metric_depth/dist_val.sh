@@ -7,8 +7,8 @@ img_size=518
 min_depth=0.001
 max_depth=20
 sample_size=100
-#model_path=../vojin
-quantized_model_name=depth_anything_v2_vits_metric_exported_modified_k_2.onnx
+#model_path=../depth_anything_v2_vits_metric_exported_modified_k_2
+quantized_model_name=depth_anything_v2_vits_metric_exported_modified_k_2.onnx # ensure this is set up correctly when evaluating SiMa-quantized models
 model_path=../checkpoints/depth_anything_v2_vits.pth
 save_path=exp/vkitti/val # exp/hypersim
 mkdir -p $save_path
