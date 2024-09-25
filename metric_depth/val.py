@@ -83,7 +83,7 @@ def main():
             all_args = {**vars(args), 'ngpus': world_size}
             logger.info('{}\n'.format(pprint.pformat(all_args)))
 
-    local_rank = int(os.environ["LOCAL_RANK"])
+        local_rank = int(os.environ["LOCAL_RANK"])
 
     cudnn.enabled = True
     cudnn.benchmark = True
