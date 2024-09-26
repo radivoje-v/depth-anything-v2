@@ -174,7 +174,7 @@ cd ./metric_depth
 
 ### Compiling models
 
-To compile the models, ensure the .onnx model (post-surgery) is inside ./checkpoints directory and run:
+To compile the models, ensure the .onnx model (post-surgery) is inside ./models directory and run:
 (this needs to be run from modelSDK docker)
 ```bash
 python compile.py --model_name <model_name> --output_dir <output_dir> [--calib_dir <calib_dir>]
