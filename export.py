@@ -1,27 +1,15 @@
 import argparse
 import logging
 import os
-import pprint
 import warnings
 
-import cv2
 import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
-import torch.distributed as dist
-from torch.utils.data import DataLoader
-import torch.nn.functional as F
 
-# from dataset.hypersim import Hypersim
-# from dataset.kitti import KITTI
 from depth_anything_v2.dpt import DepthAnythingV2 as InferenceModel
 from metric_depth.depth_anything_v2.dpt import DepthAnythingV2 as MetricModel
-from metric_depth.util.dist_helper import setup_distributed
-# from metric_depth.util.metric import eval_depth
 from metric_depth.util.utils import init_log
-import onnxruntime as ort
-from torchvision.transforms import Compose
-from depth_anything_v2.util.transform import Resize, NormalizeImage, PrepareForNet
 
 
 os.environ["PYTORCH_USE_CUDA_DSA"] = "1"
@@ -63,27 +51,30 @@ def main():
 
     dummy_input = torch.randn(1, 3, args.img_size, args.img_size).to(DEVICE)
 
-    output_path = f"{pth[:-4]}_metric_exported.onnx"
-    torch.onnx.export(model, dummy_input, output_path,
+    output_path = f"depth_anything_v2_{args.encoder}"
+
+    output_metric = f"./models/metric_{output_path}.onnx"
+    torch.onnx.export(model, dummy_input, output_metric,
                       input_names=['input'],
                       output_names=['output'],
                       dynamic_axes=None,
                       opset_version=17)
 
-    print(f"Metric model exported to {output_path} successfully.")
+    print(f"Metric model exported to {output_metric} successfully.")
 
     depth_anything = InferenceModel(**model_configs[args.encoder])
     depth_anything.load_state_dict(torch.load(pth, map_location='cpu'))
     depth_anything = depth_anything.to(DEVICE).eval()
 
-    output_path = f"{pth[:-4]}_inference_exported.onnx"
-    torch.onnx.export(depth_anything, dummy_input, output_path,
+
+    output_inference = f"./models/{output_path}.onnx"
+    torch.onnx.export(depth_anything, dummy_input, output_inference,
                       input_names=['input'],
                       output_names=['output'],
                       dynamic_axes=None,
                       opset_version=17)
 
-    print(f"Inference model exported to {output_path} successfully.")
+    print(f"Inference model exported to {output_inference} successfully.")
 
 
 if __name__ == '__main__':
