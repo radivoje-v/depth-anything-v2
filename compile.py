@@ -23,9 +23,9 @@ from afe.apis.error_handling_variables import enable_verbose_error_messages
 parser = argparse.ArgumentParser(description='Depth Anything V2 Model Compilation')
 
 
-parser.add_argument('--model_name', type=str, default='inference_depth_anything_v2_vits_opt_modified.onnx',
+parser.add_argument('--model_name', type=str, default='depth_anything_v2_vits_opt.onnx',
                     help="name of post-surgery model inside ./checkpoint directory")
-parser.add_argument('--output_dir', type=str, default='./models/inference_depth_anything_v2_vits_kitti_real',
+parser.add_argument('--output_dir', type=str, default='./depth_anything_v2_vits_opt_kitti',
                     help="name of directory to save quantized model to")
 parser.add_argument('--calib_dir', type=str, default=None,
                     help="path to directory containing calib. samples, if not specified then use random data")
@@ -34,7 +34,7 @@ parser.add_argument('--num_samples', type=int, default=-1,
 
 args = parser.parse_args()
 
-MODEL_DIR = './checkpoints'
+MODEL_DIR = './models'
 OUTPUT_DIR = args.output_dir
 
 models = [args.model_name,
