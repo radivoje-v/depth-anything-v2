@@ -85,6 +85,10 @@ def main():
 
         local_rank = int(os.environ["LOCAL_RANK"])
 
+    else:
+        all_args = {**vars(args)}
+        logger.info('{}\n'.format(pprint.pformat(all_args)))
+
     cudnn.enabled = True
     cudnn.benchmark = True
 
@@ -158,14 +162,18 @@ def main():
             pred = session.run(None, ort_inputs)[0]
             if len(pred.shape) == 4:
                 pred = pred.squeeze(0)
+
+            pred = np.transpose(pred, (2,0,1)) # bcs we modified output for MLA
             pred = torch.from_numpy(pred)
         elif extension == "quant":
             input_image = np.array(img.cpu())
             transposed_image = np.transpose(input_image, (0, 2, 3, 1))
             pred = quantized_model.execute({InputName('input'): transposed_image})
-            pred = pred[0].transpose(0, 3, 1, 2)
+
             if len(pred.shape) == 4:
                 pred = pred.squeeze(0)
+
+            pred = np.transpose(pred, (2, 0, 1)) # bcs we modified output for MLA
             pred = torch.from_numpy(pred)
 
         pred = pred.to(DEVICE)
