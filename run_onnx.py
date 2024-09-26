@@ -126,6 +126,7 @@ if __name__ == '__main__':
             if len(pred.shape) == 4:
                 pred = pred.squeeze(0)
 
+            pred = np.transpose(pred, (2,0,1)) # bcs we modified output for MLA
             pred = torch.from_numpy(pred)
         elif extension == "quant":
 
@@ -140,6 +141,7 @@ if __name__ == '__main__':
             if len(pred.shape) == 4:
                 pred = pred.squeeze(0)
 
+            pred = np.transpose(pred, (2,0,1)) # bcs we modified output for MLA
             pred = torch.from_numpy(pred)
 
         depth = pred
