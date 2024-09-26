@@ -25,8 +25,8 @@ parser = argparse.ArgumentParser(description="Graph surgery for DepthAnythingV2"
 parser.add_argument('--val', dest='val', action='store_true',
                     help='if provided will do surgery for val model; otherwise for inference model')
 parser.add_argument('--model', type=str, help='relative path to the onnx model',
-                    default="/home/rvlaskalic@syrmia.com/radivoje/github_repos/depth-anything-github/checkpoints/depth_anything_v2_vits_exported.onnx")
-parser.add_argument('--k', type=int, default=1)
+                    default="./models/depth_anything_v2_vits.onnx")
+parser.add_argument('--k', type=int, default=2)
 
 args = parser.parse_args()
 
@@ -48,6 +48,7 @@ onnx.save(model_simp, simplified_fname)
 _source_onnx_fname = Path(args.model)
 _simplified_onnx_fname = Path(simplified_fname)
 
+# _input_shape = (1, 3, 518, 518)
 _input_shape = (1, 3, 518, 518)
 _model_input_name = "input"
 _model_output_name = "output"
@@ -685,7 +686,7 @@ def _modify_postproc(k: int):
             break
 
     total_size = 592
-    target_size = 518
+    target_size = _input_shape[2]
 
     step = total_size / target_size
 
@@ -770,7 +771,7 @@ def _modify_postproc(k: int):
         else:
             width_end_tmp = width_indices[k*i+1-1] if k*i < len(width_indices) - (k-1) else 592
 
-        end_width = np.array([1, 32, 518, width_end_tmp], dtype=np.int64)
+        end_width = np.array([1, 32, _input_shape[2], width_end_tmp], dtype=np.int64)
         axes = np.array([0, 1, 2, 3], dtype=np.int64)
 
         start_width_tensor = numpy_helper.from_array(start_width, name=f'start_width_{i}')
@@ -808,25 +809,59 @@ def _modify_postproc(k: int):
 
     if val:
         # Update model output
+        # for i, node in enumerate(model.graph.node):
+        #     if node.name == "/Mul_1":
+        #         node.output[0] = "output"
+        #     if node.name == "/Squeeze":
+        #         model.graph.node.remove(node)
         for i, node in enumerate(model.graph.node):
             if node.name == "/Mul_1":
-                node.output[0] = "output"
+                relu_node = node
+                node_idx = i
+                # node.output[0] = "output"
             if node.name == "/Squeeze":
                 model.graph.node.remove(node)
 
+        model.graph.node.insert(
+            node_idx + 1,
+            onnx.helper.make_node(
+                op_type="Transpose",
+                name="Transpose",
+                inputs=relu_node.output,
+                outputs=["transposed_output"],
+                perm=(0, 2, 3, 1)
+            )
+        )
 
     else:
         # Update model output
+        # for i, node in enumerate(model.graph.node):
+        #     if node.name == "/Relu":
+        #         node.output[0] = "output"
+        #     if node.name == "/Squeeze":
+        #         model.graph.node.remove(node)
         for i, node in enumerate(model.graph.node):
             if node.name == "/Relu":
-                node.output[0] = "output"
+                relu_node = node
+                node_idx = i
+                # node.output[0] = "output"
             if node.name == "/Squeeze":
                 model.graph.node.remove(node)
 
+        model.graph.node.insert(
+            node_idx + 1,
+            onnx.helper.make_node(
+                op_type="Transpose",
+                name="Transpose",
+                inputs=relu_node.output,
+                outputs=["transposed_output"],
+                perm=(0, 2, 3, 1)
+            )
+        )
 
-    output_shape = [1, 1, 518, 518]
+    output_shape = [1, 518, 518, 1]
     output_type = onnx.TensorProto.FLOAT
-    output_name = "output"
+    output_name = "transposed_output"
 
     output_proto = onnx.helper.make_tensor_value_info(output_name, output_type, output_shape)
     model.graph.output.pop(0)
@@ -853,7 +888,7 @@ def _verify_opt_postproc(src_model, opt_model, input_names):
     ref_outputs = oh.run_model(src_model, input_names, [orig_input])
     new_outputs = oh.run_model(opt_model, input_names, [opt_input])
 
-    diff = ref_outputs[0] - new_outputs[0]
+    diff = np.transpose(ref_outputs[0], (1, 2, 0)) - new_outputs[0]
     print(f"Error: min = {np.min(diff)}, max = {np.max(diff)}")
 
 
@@ -1061,12 +1096,12 @@ def _verify_opt_block(src_model, opt_model, input_names):
 
 
 def _verify_opt_whole_model(src_model, opt_model, input_names):
-    same_input = _generate_test_vector((1, 3, 518, 518))
+    same_input = _generate_test_vector((1, 3, _input_shape[2], _input_shape[2]))
 
     ref_outputs = oh.run_model(src_model, input_names, [same_input])
     new_outputs = oh.run_model(opt_model, input_names, [same_input])
 
-    diff = ref_outputs[0] - new_outputs[0]
+    diff = np.transpose(ref_outputs[0], (1, 2, 0)) - new_outputs[0]
     print(f"Error: min = {np.min(diff)}, max = {np.max(diff)}")
 
 
@@ -1177,7 +1212,7 @@ def main(*, verify_simplified, split_top_level, split_transformer, verify_all_sp
                 )
                 _replace_node(model, node_i3, [*einsums_i3, concat])
 
-        _onnx_split_fname = Path(_onnx_path[:-5] + f"_modified_k_{k}.onnx")
+        _onnx_split_fname = Path(_onnx_path[:-5] + f"_opt.onnx")
         oh.save_model(model, _onnx_split_fname)
         print(f'ONNX file saved to {_onnx_split_fname}')
 
@@ -1190,9 +1225,11 @@ def main(*, verify_simplified, split_top_level, split_transformer, verify_all_sp
 
 
 def _verify(model_name, ref_model_name):
-    img = _generate_test_vector_no_shape()
-    assert img.shape == _input_shape, \
-        f"Illegal test vector shape. Got {img.shape}, expected {_input_shape}"
+    # img = _generate_test_vector_no_shape()
+    # assert img.shape == _input_shape, \
+    #     f"Illegal test vector shape. Got {img.shape}, expected {_input_shape}"
+
+    img = np.random.uniform(low=-1.0, high=1.0, size=_input_shape).astype(np.float32)
 
     ref_outputs = _run_model(ref_model_name, ["input"], [img])
 
@@ -1203,7 +1240,7 @@ def _verify(model_name, ref_model_name):
     print('verify.ref outs.len:', len(ref_outputs), '\n',
           ' mod outs.len:', len(outputs))
 
-    #assert len(ref_outputs) == 1
+    assert len(ref_outputs) == 1
 
     assert np.array_equal(ref_outputs[0], outputs[0]) # for i in range(len(outputs))
 
