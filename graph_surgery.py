@@ -23,7 +23,7 @@ _MIDLE_BLOCKS = 3
 
 parser = argparse.ArgumentParser(description="Graph surgery for DepthAnythingV2")
 
-parser.add_argument('--val', dest='val', action='store_true',
+parser.add_argument('--metric', dest='metric', action='store_true',
                     help='if provided will do surgery for val model; otherwise for inference model')
 parser.add_argument('--model', type=str, help='relative path to the onnx model',
                     default="./models/depth_anything_v2_vits.onnx")
@@ -67,7 +67,7 @@ _postproc_split = oh.ModelSplit("postproc", [_block_output_name], [_model_output
 
 _top_level_splits: List[oh.ModelSplit] = [_preproc_split, _transformer_split, _postproc_split]
 
-val = args.val
+val = args.metric
 
 def _run_model(model_name, input_names, input_data):
     import onnxruntime as ort

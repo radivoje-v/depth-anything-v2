@@ -118,22 +118,6 @@ For example:
 python run.py --encoder vitl --img-path assets/examples --outdir depth_vis
 ```
 
-### Running script on *images* ONNX
-```bash
-python run_onnx.py --model_path\
-  --img_path <path> --outdir <outdir> \
-  [--input-size <size>] [--pred-only] [--grayscale]
-```
-Options:
-- `--model_path`: Can point to .onnx file, or directory containing model in sima-quantized format.
-If running inference on a sima-quantized model, this script should be run from modelSDK docker.
-- `--img_path`: You can either 1) point it to an image directory storing all interested images, 2) point it to a single image, or 3) point it to a text file storing all image paths.
-- `--input-size` (optional): Needs to be `518` since the onnx graph is frozen with that fixed input shape.
-- `--pred-only` (optional): Only save the predicted depth map, without raw image.
-- `--grayscale` (optional): Save the grayscale depth map, without applying color palette.
-- `--quantized_model` (optional): filename of quantized model, if running inference on quantized model
-
-
 To generate final models that can run entirely on the MLA, please follow these steps.
 There are 2 different architectures, depending on whether you want to perform inference or 
 validation, the difference being only in the last few nodes: ReLU vs (Sigmoid + Mul).
@@ -149,14 +133,29 @@ Options:
 2. Graph surgery - these scripts should be run from modelSDK docker. Make sure to include 
 "val" flag when performing surgery on the validation model.<br><br>
 ```bash
-python graph_surgery.py --model <model> [--val]
+python graph_surgery.py --model <model> [--metric]
 ```
 Options:
 - `--model`: relative path to original .onnx model
-- `--val`: (optional) include this flag only when running surgery on the validation model.
+- `--metric`: (optional) include this flag only when running surgery on the validation model.
 
 Because of some of the custom rewrites, the new model will not give identical outputs 
 as the original model. Please evaluate the new model to check the performance.
+
+### Running script on *images* ONNX (post-surgery models)
+```bash
+python run_onnx.py --model_path\
+  --img_path <path> --outdir <outdir> \
+  [--input-size <size>] [--pred-only] [--grayscale]
+```
+Options:
+- `--model_path`: Can point to .onnx file, or directory containing model in sima-quantized format.
+If running inference on a sima-quantized model, this script should be run from modelSDK docker.
+- `--img_path`: You can either 1) point it to an image directory storing all interested images, 2) point it to a single image, or 3) point it to a text file storing all image paths.
+- `--input-size` (optional): Needs to be `518` since the onnx graph is frozen with that fixed input shape.
+- `--pred-only` (optional): Only save the predicted depth map, without raw image.
+- `--grayscale` (optional): Save the grayscale depth map, without applying color palette.
+- `--quantized_model` (optional): filename of quantized model, if running inference on quantized model
 
 ### Evaluating the validation model
 
