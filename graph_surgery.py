@@ -2,6 +2,7 @@ import argparse
 from pathlib import Path
 from typing import List, Dict, Optional
 
+import os
 import numpy as np
 import onnx
 import onnx.numpy_helper
@@ -33,8 +34,7 @@ args = parser.parse_args()
 
 _source_onnx_fname = args.model
 
-_onnx_path = _source_onnx_fname
-_onnx_fname = Path(_onnx_path)
+_onnx_path = Path(_source_onnx_fname)
 
 simplified_fname = f"{args.model[:-5]}_simplified.onnx"
 
@@ -1212,15 +1212,31 @@ def main(*, verify_simplified, split_top_level, split_transformer, verify_all_sp
                 )
                 _replace_node(model, node_i3, [*einsums_i3, concat])
 
-        _onnx_split_fname = Path(_onnx_path[:-5] + f"_opt.onnx")
-        oh.save_model(model, _onnx_split_fname)
-        print(f'ONNX file saved to {_onnx_split_fname}')
+        final_model_name = Path(args.model[:-5] + f"_opt.onnx")
+        oh.save_model(model, final_model_name)
+        print(f'ONNX file saved to {final_model_name}')
 
-        # _verify(_onnx_split_fname, _onnx_fname)
-        # _verify(_onnx_split_fname, Path(f"{_onnx_path[:-5]}_opt.onnx"))
-        _verify(_onnx_split_fname, opt_model_fname)
+        # _verify(final_model_name, _onnx_fname)
+        # _verify(final_model_name, Path(f"{_onnx_path[:-5]}_opt.onnx"))
+        _verify(final_model_name, opt_model_fname)
 
-    print(f'Final model name: {_onnx_split_fname}')
+    print(f'Final model name: {final_model_name}')
+
+    stemed_model_name = os.path.basename(_onnx_path.stem)
+
+    os.remove(f"{stemed_model_name}_simplified_opt.onnx")
+    os.remove(f"{stemed_model_name}_simplified_postproc.onnx")
+    os.remove(f"{stemed_model_name}_simplified_postproc_opt.onnx")
+    os.remove(f"{stemed_model_name}_simplified_preproc.onnx")
+    os.remove(f"{stemed_model_name}_simplified_preproc_opt.onnx")
+    os.remove(f"{stemed_model_name}_simplified_vit.onnx")
+
+    for i in range(_MIDLE_BLOCKS):
+        os.remove(f"{stemed_model_name}_simplified_vit_block.{i}_attn.onnx")
+        os.remove(f"{stemed_model_name}_simplified_vit_block.{i}_attn_opt.onnx")
+        os.remove(f"{stemed_model_name}_simplified_vit_block.{i}_mlp.onnx")
+        os.remove(f"{stemed_model_name}_simplified_vit_block.{i}_mlp_opt.onnx")
+
     print("--Done!")
 
 
