@@ -808,12 +808,6 @@ def _modify_postproc(k: int):
             break
 
     if val:
-        # Update model output
-        # for i, node in enumerate(model.graph.node):
-        #     if node.name == "/Mul_1":
-        #         node.output[0] = "output"
-        #     if node.name == "/Squeeze":
-        #         model.graph.node.remove(node)
         for i, node in enumerate(model.graph.node):
             if node.name == "/Mul_1":
                 relu_node = node
@@ -834,12 +828,6 @@ def _modify_postproc(k: int):
         )
 
     else:
-        # Update model output
-        # for i, node in enumerate(model.graph.node):
-        #     if node.name == "/Relu":
-        #         node.output[0] = "output"
-        #     if node.name == "/Squeeze":
-        #         model.graph.node.remove(node)
         for i, node in enumerate(model.graph.node):
             if node.name == "/Relu":
                 relu_node = node
