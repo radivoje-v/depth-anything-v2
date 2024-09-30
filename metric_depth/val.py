@@ -2,6 +2,7 @@ import argparse
 import logging
 import os
 import pprint
+import sys
 import warnings
 
 import cv2
@@ -14,7 +15,6 @@ import torch.nn.functional as F
 
 from dataset.hypersim import Hypersim
 from dataset.kitti import KITTI
-from depth_anything_v2.dpt import DepthAnythingV2
 from util.dist_helper import setup_distributed
 from util.metric import eval_depth
 from util.utils import init_log
@@ -39,6 +39,7 @@ parser.add_argument('--save-path', type=str, required=True)
 parser.add_argument('--local-rank', default=0, type=int)
 parser.add_argument('--port', default=None, type=int)
 parser.add_argument('--sample_size', default=-1, type=int)
+parser.add_argument('--metric', default=0, type=int)
 
 
 def create_onnx_session(model_path):
@@ -119,7 +120,18 @@ def main():
 
     if args.model_path.endswith(".pth"):
         extension = "pth"
-        model = DepthAnythingV2(**{**model_configs[args.encoder], 'max_depth': args.max_depth})
+
+        if args.metric:
+            from depth_anything_v2.dpt import DepthAnythingV2
+            model = DepthAnythingV2(**{**model_configs[args.encoder], 'max_depth': args.max_depth})
+
+        else:
+            parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+            sys.path.insert(0, parent_dir)
+
+            from depth_anything_v2.dpt import DepthAnythingV2
+            model = DepthAnythingV2(**{**model_configs[args.encoder]})
+
         model.load_state_dict(torch.load(args.model_path, map_location='cpu'))
         model.to(DEVICE).eval()
         model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -167,8 +179,9 @@ def main():
             pred = torch.from_numpy(pred)
         elif extension == "quant":
             input_image = np.array(img.cpu())
-            transposed_image = np.transpose(input_image, (0, 2, 3, 1))
-            pred = quantized_model.execute({InputName('input'): transposed_image})
+            transposed_image = np.transpose(input_image, (0, 2, 3, 1))  # NCHW -> NHWC
+            pred = quantized_model.execute({InputName('input'): transposed_image})[0]
+            pred = np.transpose(pred, (0,3,1,2)) # NHWC -> NCHW
 
             if len(pred.shape) == 4:
                 pred = pred.squeeze(0)

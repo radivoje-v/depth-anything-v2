@@ -162,7 +162,8 @@ If running inference on a sima-quantized model, this script should be run from m
 ### Evaluating the validation model
 
 Modify dist_val.sh script by setting "model_path" to the model you want to evaluate. 
-This variable can point to a .pth file or .onnx file. 
+This variable can point to a .pth file or .onnx file. When evaluating metric depth models, set "metric" to 1. When evaluating relative depth models,
+keep "metric" at 0.
 
 In the case of evaluating a SiMa-quantized model,
 "model_path" can point to the directory containing the quantized model, "quantized_model_name" should be set to

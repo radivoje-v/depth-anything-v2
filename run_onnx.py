@@ -138,9 +138,9 @@ if __name__ == '__main__':
             image = np.expand_dims(np.transpose(image, (2,0,1)), axis=0)
             input_image = image
 
-            transposed_image = np.transpose(input_image, (0, 2, 3, 1))
+            transposed_image = np.transpose(input_image, (0, 2, 3, 1)) # NCHW -> NHWC
             pred = quantized_model.execute({InputName('input'): transposed_image})
-            pred = pred[0].transpose(0, 3, 1, 2)
+            pred = pred[0].transpose(0, 3, 1, 2) # NHWC -> NCHW
 
             if len(pred.shape) == 4:
                 pred = pred.squeeze(0)
