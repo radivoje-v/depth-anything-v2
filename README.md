@@ -137,7 +137,7 @@ python graph_surgery.py --model <model> [--metric]
 ```
 Options:
 - `--model`: relative path to original .onnx model
-- `--metric`: (optional) include this flag only when running surgery on the validation model.
+- `--metric`: (optional) include this flag only when running surgery on the metric model.
 
 Because of some of the custom rewrites, the new model will not give identical outputs 
 as the original model. Please evaluate the new model to check the performance.
@@ -159,7 +159,7 @@ If running inference on a sima-quantized model, this script should be run from m
 - `--quantized_model_name` (optional): filename of quantized model, if running inference on quantized model
 - `--metric` (optional): include this if running inference on the metric model
 
-### Evaluating the validation model
+### Evaluating the model
 
 Modify dist_val.sh script by setting "model_path" to the model you want to evaluate. 
 This variable can point to a .pth file or .onnx file. When evaluating metric depth models, set "metric" to 1. When evaluating relative depth models,
