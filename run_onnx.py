@@ -66,11 +66,12 @@ if __name__ == '__main__':
     parser.add_argument('--quantized_model_name', type=str, default='inference_depth_anything_v2_vits_opt_modified.onnx')
     parser.add_argument('--pred-only', dest='pred_only', action='store_true', help='only display the prediction')
     parser.add_argument('--grayscale', dest='grayscale', action='store_true', help='do not apply colorful palette')
+    parser.add_argument('--metric', dest='metric', action='store_true',
+                        help='if provided will perform postproc for the metric depth model')
 
     args = parser.parse_args()
 
     model_path = args.model_path
-    # session = ort.InferenceSession(model_path, providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
 
     if os.path.isfile(args.img_path):
         if args.img_path.endswith('txt'):
@@ -83,7 +84,10 @@ if __name__ == '__main__':
 
     os.makedirs(args.outdir, exist_ok=True)
 
-    cmap = matplotlib.colormaps.get_cmap('Spectral_r')
+    if args.metric:
+        cmap = matplotlib.colormaps.get_cmap('Spectral')
+    else:
+        cmap = matplotlib.colormaps.get_cmap('Spectral_r')
 
     if args.model_path.endswith(".onnx"):
         extension = "onnx"
