@@ -119,8 +119,8 @@ python run.py --encoder vitl --img-path assets/examples --outdir depth_vis
 ```
 
 To generate final models that can run entirely on the MLA, please follow these steps.
-There are 2 different architectures, depending on whether you want to perform inference or 
-validation, the difference being only in the last few nodes: ReLU vs (Sigmoid + Mul).
+There are 2 different architectures, one for relative depth estimation, and
+the other one for metric depth estimation, the difference being only in the last few nodes: ReLU vs (Sigmoid + Mul).
 
 1. Export pretrained .pth models to .onnx:
 ```bash
@@ -131,7 +131,7 @@ Options:
 - `--checkpoint`: path to .pth file
 
 2. Graph surgery - these scripts should be run from modelSDK docker. Make sure to include 
-"val" flag when performing surgery on the validation model.<br><br>
+"metric" flag when performing surgery on the metric depth model.<br><br>
 ```bash
 python graph_surgery.py --model <model> [--metric]
 ```
@@ -146,7 +146,8 @@ as the original model. Please evaluate the new model to check the performance.
 ```bash
 python run_onnx.py --model_path\
   --img_path <path> --outdir <outdir> \
-  [--input-size <size>] [--pred-only] [--grayscale]
+  [--input-size <size>] [--pred-only] [--grayscale] \
+  [--quantized_model_name <name>] [--metric]
 ```
 Options:
 - `--model_path`: Can point to .onnx file, or directory containing model in sima-quantized format.
@@ -155,7 +156,8 @@ If running inference on a sima-quantized model, this script should be run from m
 - `--input-size` (optional): Needs to be `518` since the onnx graph is frozen with that fixed input shape.
 - `--pred-only` (optional): Only save the predicted depth map, without raw image.
 - `--grayscale` (optional): Save the grayscale depth map, without applying color palette.
-- `--quantized_model` (optional): filename of quantized model, if running inference on quantized model
+- `--quantized_model_name` (optional): filename of quantized model, if running inference on quantized model
+- `--metric` (optional): include this if running inference on the metric model
 
 ### Evaluating the validation model
 
