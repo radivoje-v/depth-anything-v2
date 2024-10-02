@@ -169,6 +169,8 @@ In the case of evaluating a SiMa-quantized model,
 "model_path" can point to the directory containing the quantized model, "quantized_model_name" should be set to
 the name of the quantized model, and the script should be run from modelSDK docker.
 
+Make sure to set paths in metric_depth/dataset/splits/kitti/val.txt to the images you want to evaluate on.
+
 ```bash
 cd ./metric_depth
 ./dist_val.sh
